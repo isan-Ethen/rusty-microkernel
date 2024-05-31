@@ -1,2 +1,2 @@
 # rusty-microkernel
-This is an Microkernel OS written in Rust
+This is a Microkernel OS written in Rust
