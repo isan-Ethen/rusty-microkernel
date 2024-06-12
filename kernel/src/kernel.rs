@@ -12,13 +12,26 @@ extern "C" {
 
 #[no_mangle]
 fn kernel_main() {
-    unsafe {
-        let bss = ptr::addr_of_mut!(__bss);
-        let bss_end = ptr::addr_of!(__bss_end);
-        ptr::write_bytes(bss, 0, bss_end as usize - bss as usize);
+    /* versiong 1
+     * unsafe {
+     *     let bss = ptr::addr_of_mut!(__bss);
+     *     let bss_end = ptr::addr_of!(__bss_end);
+     *     ptr::write_bytes(bss, 0, bss_end as usize - bss as usize);
+     * }
+     *
+     *
+     * loop {}
+     */
+    let s = "\n\nHello World!\n";
+    for c in s.chars() {
+        putchar(c);
     }
 
-    loop {}
+    loop {
+        unsafe {
+            asm!("wfi");
+        }
+    }
 }
 
 #[link_section = ".text.boot"]
@@ -38,4 +51,13 @@ extern "C" fn boot() {
 #[panic_handler]
 fn panic(_info: &PanicInfo) -> ! {
     loop {}
+}
+
+mod sbi;
+
+#[no_mangle]
+fn putchar(ch: char) {
+    unsafe {
+        sbi::SbiRet::sbi_call(ch as i32, 0, 0, 0, 0, 0, 0, 1 /* Console putchar */);
+    }
 }
