@@ -12,3 +12,16 @@ Cargo.lock
 
 # MSVC Windows builds of rustc generate these, which store debugging information
 *.pdb
+
+# Generated at boot time
+kernel.map
+qemu.log
+
+# Shell files
+shell.bin
+shell.bin.o
+
+# Disk files
+lorem.txt
+disk/
+disk.tar
