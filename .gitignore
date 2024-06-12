@@ -25,3 +25,6 @@ shell.bin.o
 lorem.txt
 disk/
 disk.tar
+
+# Assemblies dumped from the kernel binary by llvm-objdump
+kernel-assembly/
