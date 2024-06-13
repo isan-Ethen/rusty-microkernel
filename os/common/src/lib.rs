@@ -52,7 +52,6 @@ impl<'a> Argument<'a> {
     }
 }
 
-#[no_mangle]
 pub fn print(string: &str, args: &[Argument]) {
     let mut str_iter: Chars<'_> = string.chars();
     let mut args_iter: Iter<'_, Argument<'_>> = args.iter();
@@ -83,6 +82,13 @@ pub fn print(string: &str, args: &[Argument]) {
             }
             _ => unsafe { putchar(fmt) },
         }
+    }
+}
+
+pub fn println(string: &str, args: &[Argument]) {
+    print(string, args);
+    unsafe {
+        putchar('\n');
     }
 }
 
@@ -131,4 +137,31 @@ fn print_string(arg: &Argument) {
             }
         }
     }
+}
+
+// Define types those express memory address.
+// Physical memory address
+pub type PAddr = u32;
+// Virtual memory address
+pub type VAddr = u32;
+
+pub fn align_up<T>(value: usize, align: usize) -> usize {
+    let remainder = value % align;
+    if remainder == 0 {
+        value
+    } else {
+        value + (align - remainder)
+    }
+}
+fn is_aligned(value: usize, align: usize) -> bool {
+    value % align == 0
+}
+
+fn strcmp(s1: &str, s2: &str) -> i32 {
+    for (c1, c2) in s1.chars().zip(s2.chars()) {
+        if c1 != c2 {
+            return if c1 > c2 { 1 } else { -1 };
+        }
+    }
+    0
 }
