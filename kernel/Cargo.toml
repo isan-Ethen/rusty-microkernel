@@ -13,3 +13,4 @@ name = "kernel"
 path = "src/kernel.rs"
 
 [dependencies]
+common = { path = "./common" }

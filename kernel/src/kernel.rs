@@ -2,7 +2,9 @@
 #![no_main]
 #![feature(naked_functions)]
 
-use core::{arch::asm, panic::PanicInfo, ptr};
+use common::{print, Argument};
+
+use core::{arch::asm, panic::PanicInfo};
 
 extern "C" {
     static mut __bss: u32;
@@ -12,20 +14,14 @@ extern "C" {
 
 #[no_mangle]
 fn kernel_main() {
-    /* versiong 1
-     * unsafe {
-     *     let bss = ptr::addr_of_mut!(__bss);
-     *     let bss_end = ptr::addr_of!(__bss_end);
-     *     ptr::write_bytes(bss, 0, bss_end as usize - bss as usize);
-     * }
-     *
-     *
-     * loop {}
-     */
-    let s = "\n\nHello World!\n";
-    for c in s.chars() {
-        putchar(c);
-    }
+    print("\n\nHello %s\n", &[Argument::new_string("World!")]);
+    print(
+        "1 + 2 = %d, %x\n",
+        &[
+            Argument::new_decimal(1 + 2),
+            Argument::new_hexadecimal(0x1234abcd),
+        ],
+    );
 
     loop {
         unsafe {
