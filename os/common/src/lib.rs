@@ -98,17 +98,17 @@ fn print_decimal(arg: &Argument) {
         if value < 0 {
             unsafe { putchar('-') };
             value = -value;
+        }
 
-            let mut divisor: i32 = 1;
-            while value / divisor > 9 {
-                divisor *= 10;
-            }
+        let mut divisor: i32 = 1;
+        while value / divisor > 9 {
+            divisor *= 10;
+        }
 
-            while divisor > 0 {
-                unsafe { putchar((value / divisor) as u8 as char) };
-                value %= divisor;
-                divisor /= 10;
-            }
+        while divisor > 0 {
+            unsafe { putchar(('0' as u8 + (value / divisor) as u8) as char) };
+            value %= divisor;
+            divisor /= 10;
         }
     }
 }
