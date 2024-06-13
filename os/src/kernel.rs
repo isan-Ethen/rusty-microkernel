@@ -61,7 +61,7 @@ fn panic(info: &PanicInfo) -> ! {
 fn print_panic_info(info: &PanicInfo) {
     if let Some(location) = info.location() {
         print(
-            "PANIC!: Panic occurred in file %s at line %s",
+            "PANIC!: Panic occurred in file %s at line %d",
             &[
                 Argument::new_string(location.file()),
                 Argument::new_decimal(location.line() as i32),
