@@ -110,6 +110,8 @@ fn print_decimal(arg: &Argument) {
             value %= divisor;
             divisor /= 10;
         }
+    } else {
+        print("Argument must be a Decimal type!", &[]);
     }
 }
 
@@ -126,6 +128,8 @@ fn print_hexadecimal(arg: &Argument) {
                 );
             }
         }
+    } else {
+        print("Argument must be a Hexadecimal type!", &[]);
     }
 }
 
@@ -136,6 +140,8 @@ fn print_string(arg: &Argument) {
                 putchar(c);
             }
         }
+    } else {
+        print("Argument must be a String type!", &[]);
     }
 }
 
