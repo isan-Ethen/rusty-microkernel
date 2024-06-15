@@ -74,22 +74,8 @@ fn print_panic_info(info: &PanicInfo) {
         );
     }
 
-    if let Some(message) = info.message() {
-        let mut putchar_writer = PutcharWriter;
-        print(": ", &[]);
-        let _ = fmt::write(&mut putchar_writer, *message);
-        println("", &[]);
-    }
-}
-
-struct PutcharWriter;
-
-impl fmt::Write for PutcharWriter {
-    fn write_str(&mut self, s: &str) -> fmt::Result {
-        for c in s.chars() {
-            putchar(c);
-        }
-        Ok(())
+    if let Some(message) = info.message().as_str() {
+        println(": %s", &[Argument::new_string(message)]);
     }
 }
 
