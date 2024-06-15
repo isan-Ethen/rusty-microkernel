@@ -4,7 +4,10 @@
 #![feature(panic_info_message)]
 #![allow(unused)]
 
-use common::{print, println, Argument};
+mod memory;
+
+use common::{print, println, Argument, PAddr};
+use memory::alloc_pages;
 
 use core::{arch::asm, fmt::Write, panic::PanicInfo, ptr};
 
@@ -41,20 +44,20 @@ fn kernel_main() {
         let bss_end = ptr::addr_of!(__bss_end);
         ptr::write_bytes(bss, 0, bss_end as usize - bss as usize);
     }
-    println("\n\nHello %s", &[Argument::new_string("World!")]);
-    print(
-        "1 + 2 = %d, %x\n",
-        &[
-            Argument::new_decimal(1 + 2),
-            Argument::new_hexadecimal(0x1234abcd),
-        ],
+
+    let paddr0: PAddr = alloc_pages(2);
+    let paddr1: PAddr = alloc_pages(1);
+
+    println(
+        "alloc_pages: paddr0=%x",
+        &[Argument::new_hexadecimal(paddr0 as i32)],
+    );
+    println(
+        "alloc_pages: paddr1=%x",
+        &[Argument::new_hexadecimal(paddr1 as i32)],
     );
 
-    write_csr!("stvec", kernel_entry);
-
-    unsafe {
-        asm!("unimp");
-    }
+    panic!("booted");
 }
 
 #[link_section = ".text.boot"]

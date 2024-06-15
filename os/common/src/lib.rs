@@ -160,6 +160,7 @@ pub fn align_up<T>(value: usize, align: usize) -> usize {
         value + (align - remainder)
     }
 }
+
 fn is_aligned(value: usize, align: usize) -> bool {
     value % align == 0
 }
@@ -172,3 +173,5 @@ fn strcmp(s1: &str, s2: &str) -> i32 {
     }
     0
 }
+
+pub const PAGE_SIZE: u32 = 4096;
