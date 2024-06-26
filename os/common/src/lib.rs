@@ -12,6 +12,7 @@ extern "C" {
 pub enum Argument<'a> {
     Decimal(i32),
     Hexadecimal(i32),
+    UInt(u32),
     String(&'a str),
 }
 
@@ -22,6 +23,10 @@ impl<'a> Argument<'a> {
 
     pub fn new_hexadecimal(arg: i32) -> Argument<'a> {
         Argument::Hexadecimal(arg)
+    }
+
+    pub fn new_uint(arg: u32) -> Argument<'a> {
+        Argument::UInt(arg)
     }
 
     pub fn new_string(arg: &'a str) -> Argument<'a> {
@@ -38,6 +43,14 @@ impl<'a> Argument<'a> {
 
     fn into_hexadecimal(&self) -> Option<&i32> {
         if let Argument::Hexadecimal(inner_val) = self {
+            Some(&inner_val)
+        } else {
+            None
+        }
+    }
+
+    fn into_uint(&self) -> Option<&u32> {
+        if let Argument::UInt(inner_val) = self {
             Some(&inner_val)
         } else {
             None
@@ -70,6 +83,11 @@ pub fn print(string: &str, args: &[Argument]) {
                         'x' => {
                             if let Some(arg) = args_iter.next() {
                                 print_hexadecimal(arg);
+                            }
+                        }
+                        'u' => {
+                            if let Some(arg) = args_iter.next() {
+                                print_uint(arg);
                             }
                         }
                         's' => {
@@ -134,6 +152,23 @@ fn print_hexadecimal(arg: &Argument) {
     }
 }
 
+fn print_uint(arg: &Argument) {
+    if let Some(inner_val) = arg.into_uint() {
+        let mut value: u32 = *inner_val;
+        let mut divisor: u32 = 1;
+        while value / divisor > 9 {
+            divisor *= 10;
+        }
+
+        while divisor > 0 {
+            unsafe { putchar(('0' as u8 + (value / divisor) as u8) as char) };
+            value %= divisor;
+            divisor /= 10;
+        }
+    } else {
+        print("Argument must be a UInt type!", &[]);
+    }
+}
 fn print_string(arg: &Argument) {
     if let Some(inner_val) = arg.into_string() {
         for c in inner_val.chars() {

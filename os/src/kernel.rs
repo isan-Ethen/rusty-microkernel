@@ -4,10 +4,7 @@
 #![feature(panic_info_message)]
 #![allow(unused)]
 
-mod memory;
-
-use common::{print, println, Argument, PAddr};
-use memory::alloc_pages;
+use common::{print, println, Argument};
 
 use core::{arch::asm, fmt::Write, panic::PanicInfo, ptr};
 
@@ -37,6 +34,48 @@ macro_rules! write_csr {
     };
 }
 
+static mut proc_a: Process = Process {
+    pid: 0,
+    state: PROC_UNUSED,
+    sp: 0,
+    stack: [0; 8192],
+};
+
+static mut proc_b: Process = Process {
+    pid: 0,
+    state: PROC_UNUSED,
+    sp: 0,
+    stack: [0; 8192],
+};
+
+use process::switch_context;
+
+#[no_mangle]
+unsafe fn proc_a_entry() {
+    println("starting process A", &[]);
+    loop {
+        putchar('A');
+        switch_context(&mut proc_a.sp as *mut u32, &mut proc_b.sp as *mut u32);
+
+        for i in 0..3000000 {
+            asm!("nop");
+        }
+    }
+}
+
+#[no_mangle]
+unsafe fn proc_b_entry() {
+    println("starting process B", &[]);
+    loop {
+        putchar('B');
+        switch_context(&mut proc_b.sp as *mut u32, &mut proc_a.sp as *mut u32);
+
+        for i in 0..3000000 {
+            asm!("nop");
+        }
+    }
+}
+
 #[no_mangle]
 fn kernel_main() {
     unsafe {
@@ -45,19 +84,15 @@ fn kernel_main() {
         ptr::write_bytes(bss, 0, bss_end as usize - bss as usize);
     }
 
-    let paddr0: PAddr = alloc_pages(2);
-    let paddr1: PAddr = alloc_pages(1);
+    write_csr!("stvec", kernel_entry);
 
-    println(
-        "alloc_pages: paddr0=%x",
-        &[Argument::new_hexadecimal(paddr0 as i32)],
-    );
-    println(
-        "alloc_pages: paddr1=%x",
-        &[Argument::new_hexadecimal(paddr1 as i32)],
-    );
+    unsafe {
+        proc_a = *create_process(proc_a_entry as u32);
+        proc_b = *create_process(proc_b_entry as u32);
+        proc_a_entry();
+    }
 
-    panic!("booted");
+    panic!("switched to idle process")
 }
 
 #[link_section = ".text.boot"]
@@ -99,10 +134,7 @@ fn print_panic_info(info: &PanicInfo) {
     if let Some(message) = info.message().as_str() {
         println(": %s", &[Argument::new_string(message)]);
     } else {
-        let mut putchar_writer = PutcharWriter;
-        print(": ", &[]);
-        let _ = core::fmt::write(&mut putchar_writer, info.message());
-        println("", &[]);
+        // println(": PanicInfo does not support argument", &[]);
     }
 }
 
@@ -248,8 +280,84 @@ fn handle_trap(f: *mut TrapFrame) {
     let stval: u32 = read_csr!("stval");
     let user_pc: u32 = read_csr!("sepc");
 
+    println(
+        "unexpected trap scause=%u, stval=%u, sepc=%u",
+        &[
+            Argument::new_uint(scause),
+            Argument::new_uint(stval),
+            Argument::new_uint(user_pc),
+        ],
+    );
+
     panic!(
         "unexpected trap scause={}, stval={}, sepc={}",
         scause, stval, user_pc
     );
+}
+
+use common::VAddr;
+mod process;
+use process::*;
+
+static mut PROCS: [Option<Process>; PROCS_MAX as usize] = [None; PROCS_MAX as usize];
+
+unsafe fn create_process(pc: u32) -> &'static mut Process {
+    let mut process: Option<&'static mut Process> = None;
+    let mut i = 0;
+    while i < PROCS_MAX {
+        if let Some(p) = &mut PROCS[i as usize] {
+            if p.state == PROC_UNUSED {
+                process = Some(p);
+                break;
+            }
+        } else {
+            let proc = Some(Process::new());
+            PROCS[i as usize] = proc;
+            if let Some(p) = &mut PROCS[i as usize] {
+                process = Some(p)
+            } else {
+                panic!("process have unundastandable bug!");
+            }
+            break;
+        }
+        i += 1;
+    }
+
+    println("pid: %u", &[Argument::new_uint(i)]);
+
+    if let Some(proc) = process {
+        let stack = ptr::addr_of_mut!(proc.stack) as *mut u32;
+        let sp = stack.add(proc.stack.len());
+        *sp.offset(-1) = 0; //s11
+        *sp.offset(-2) = 0; //s10
+        *sp.offset(-3) = 0; //s9
+        *sp.offset(-4) = 0; //s8
+        *sp.offset(-5) = 0; //s7
+        *sp.offset(-6) = 0; //s6
+        *sp.offset(-7) = 0; //s5
+        *sp.offset(-8) = 0; //s4
+        *sp.offset(-9) = 0; //s3
+        *sp.offset(-10) = 0; //s2
+        *sp.offset(-11) = 0; //s1
+        *sp.offset(-12) = 0; //s0
+        *sp.offset(-13) = pc; //ra
+        proc.set_pid(i as i32 + 1);
+        proc.set_state(PROC_RUNNABLE);
+        proc.set_sp(sp.offset(-13) as VAddr);
+
+        println("PROCS[ ", &[]);
+        for proc in PROCS.iter() {
+            if let Some(proc) = proc {
+                println(
+                    "  pid: %d , sp: %u",
+                    &[Argument::new_decimal(proc.pid), Argument::new_uint(proc.sp)],
+                );
+            }
+        }
+        println("]", &[]);
+
+        return proc;
+    } else {
+        panic!("no free process slots");
+    };
 }
