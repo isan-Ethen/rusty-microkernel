@@ -55,7 +55,7 @@ unsafe fn proc_a_entry() {
     println("starting process A", &[]);
     loop {
         putchar('A');
-        switch_context(&mut proc_a.sp as *mut u32, &mut proc_b.sp as *mut u32);
+        _yield();
 
         for i in 0..3000000 {
             asm!("nop");
@@ -68,11 +68,19 @@ unsafe fn proc_b_entry() {
     println("starting process B", &[]);
     loop {
         putchar('B');
-        switch_context(&mut proc_b.sp as *mut u32, &mut proc_a.sp as *mut u32);
+        _yield();
 
         for i in 0..3000000 {
             asm!("nop");
         }
+    }
+}
+
+#[no_mangle]
+unsafe fn idle() {
+    println("idle!", &[]);
+    loop {
+        asm!("nop");
     }
 }
 
@@ -87,11 +95,15 @@ fn kernel_main() {
     write_csr!("stvec", kernel_entry);
 
     unsafe {
+        let mut idle_proc = create_process(idle as u32);
+        idle_proc.set_pid(-1);
+        CURRENT_PROC.store(idle_proc as *const _ as *mut _, Ordering::Release);
+        IDLE_PROC = Some(*idle_proc);
+
         proc_a = *create_process(proc_a_entry as u32);
         proc_b = *create_process(proc_b_entry as u32);
-        proc_a_entry();
     }
-
+    _yield();
     panic!("switched to idle process")
 }
 
@@ -323,8 +335,6 @@ unsafe fn create_process(pc: u32) -> &'static mut Process {
         i += 1;
     }
 
-    println("pid: %u", &[Argument::new_uint(i)]);
-
     if let Some(proc) = process {
         let stack = ptr::addr_of_mut!(proc.stack) as *mut u32;
         let sp = stack.add(proc.stack.len());
@@ -345,19 +355,47 @@ unsafe fn create_process(pc: u32) -> &'static mut Process {
         proc.set_state(PROC_RUNNABLE);
         proc.set_sp(sp.offset(-13) as VAddr);
 
-        println("PROCS[ ", &[]);
-        for proc in PROCS.iter() {
-            if let Some(proc) = proc {
-                println(
-                    "  pid: %d , sp: %u",
-                    &[Argument::new_decimal(proc.pid), Argument::new_uint(proc.sp)],
-                );
-            }
-        }
-        println("]", &[]);
-
         return proc;
     } else {
         panic!("no free process slots");
     };
+}
+
+use core::sync::atomic::{AtomicPtr, Ordering};
+
+static CURRENT_PROC: AtomicPtr<Process> = AtomicPtr::new(core::ptr::null_mut());
+static mut IDLE_PROC: Option<Process> = None;
+
+fn _yield() {
+    unsafe {
+        let mut current_proc = CURRENT_PROC.load(Ordering::Acquire);
+        if current_proc.is_null() || IDLE_PROC.is_none() {
+            panic!("No current process or idle process");
+        }
+
+        let current_proc = &mut *current_proc;
+        let idle = IDLE_PROC.as_mut().unwrap();
+
+        let mut next = idle;
+        for i in 0..PROCS_MAX {
+            let num = (current_proc.pid + i as i32);
+            if num >= 0 {
+                let index = (num as usize % PROCS_MAX as usize);
+                if let Some(proc) = &mut PROCS[index] {
+                    if proc.state == PROC_RUNNABLE && proc.pid > 0 {
+                        next = proc;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if next == current_proc {
+            return;
+        }
+
+        CURRENT_PROC.store(next as *const _ as *mut _, Ordering::Release);
+
+        switch_context(&mut current_proc.sp as *mut u32, &mut next.sp as *mut u32);
+    }
 }
