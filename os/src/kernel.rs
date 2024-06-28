@@ -377,6 +377,7 @@ fn _yield() {
         let idle = IDLE_PROC.as_mut().unwrap();
 
         let mut next = idle;
+
         for i in 0..PROCS_MAX {
             let num = (current_proc.pid + i as i32);
             if num >= 0 {
@@ -393,6 +394,11 @@ fn _yield() {
         if next == current_proc {
             return;
         }
+
+        asm!(
+            "csrw sscratch, {sscratch}",
+            sscratch = in(reg) next.stack.as_ptr_range().end as u32,
+        );
 
         CURRENT_PROC.store(next as *const _ as *mut _, Ordering::Release);
 
