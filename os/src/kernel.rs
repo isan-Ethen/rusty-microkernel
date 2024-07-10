@@ -38,6 +38,7 @@ static mut proc_a: Process = Process {
     pid: 0,
     state: PROC_UNUSED,
     sp: 0,
+    page_table: 0,
     stack: [0; 8192],
 };
 
@@ -45,6 +46,7 @@ static mut proc_b: Process = Process {
     pid: 0,
     state: PROC_UNUSED,
     sp: 0,
+    page_table: 0,
     stack: [0; 8192],
 };
 
@@ -307,11 +309,16 @@ fn handle_trap(f: *mut TrapFrame) {
     );
 }
 
-use common::VAddr;
+use common::{VAddr, PAGE_SIZE};
+mod memory;
+use memory::*;
 mod process;
 use process::*;
 
 static mut PROCS: [Option<Process>; PROCS_MAX as usize] = [None; PROCS_MAX as usize];
+extern "C" {
+    static mut __kernel_base: u8;
+}
 
 unsafe fn create_process(pc: u32) -> &'static mut Process {
     let mut process: Option<&'static mut Process> = None;
@@ -351,9 +358,20 @@ unsafe fn create_process(pc: u32) -> &'static mut Process {
         *sp.offset(-11) = 0; //s1
         *sp.offset(-12) = 0; //s0
         *sp.offset(-13) = pc; //ra
+
+        let mut page_table = alloc_pages(1);
+
+        let free_ram_end = __free_ram_end as *const u32 as u32;
+        let mut paddr = __kernel_base as *const u32 as u32;
+        while paddr < free_ram_end {
+            map_page(&mut page_table, paddr, paddr, PAGE_R | PAGE_W | PAGE_X);
+            paddr += PAGE_SIZE;
+        }
+
         proc.set_pid(i as i32 + 1);
         proc.set_state(PROC_RUNNABLE);
         proc.set_sp(sp.offset(-13) as VAddr);
+        proc.set_page_table(page_table);
 
         return proc;
     } else {
@@ -396,7 +414,11 @@ fn _yield() {
         }
 
         asm!(
+            "sfence.vma",
+            "csrw satp, {satp}",
+            "sfence.vma",
             "csrw sscratch, {sscratch}",
+            satp = in(reg) SATP_SV32 | next.page_table / PAGE_SIZE,
             sscratch = in(reg) next.stack.as_ptr_range().end as u32,
         );
 

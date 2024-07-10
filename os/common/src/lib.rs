@@ -13,6 +13,7 @@ pub enum Argument<'a> {
     Decimal(i32),
     Hexadecimal(i32),
     UInt(u32),
+    HexUInt(u32),
     String(&'a str),
 }
 
@@ -26,6 +27,10 @@ impl<'a> Argument<'a> {
     }
 
     pub fn new_uint(arg: u32) -> Argument<'a> {
+        Argument::UInt(arg)
+    }
+
+    pub fn new_hexuint(arg: u32) -> Argument<'a> {
         Argument::UInt(arg)
     }
 
@@ -57,6 +62,14 @@ impl<'a> Argument<'a> {
         }
     }
 
+    fn into_hexuint(&self) -> Option<&u32> {
+        if let Argument::HexUInt(inner_val) = self {
+            Some(&inner_val)
+        } else {
+            None
+        }
+    }
+
     fn into_string(&self) -> Option<&str> {
         if let Argument::String(inner_val) = self {
             Some(inner_val)
@@ -82,7 +95,7 @@ pub fn print(string: &str, args: &[Argument]) {
                         }
                         'x' => {
                             if let Some(arg) = args_iter.next() {
-                                print_hexadecimal(arg);
+                                print_hex(arg);
                             }
                         }
                         'u' => {
@@ -134,9 +147,21 @@ fn print_decimal(arg: &Argument) {
     }
 }
 
-fn print_hexadecimal(arg: &Argument) {
+fn print_hex(arg: &Argument) {
     if let Some(inner_val) = arg.into_hexadecimal() {
         for i in (0..=7).rev() {
+            let nibble: usize = ((inner_val >> (i * 4)) & 0xf) as usize;
+            unsafe {
+                putchar(
+                    [
+                        '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e',
+                        'f',
+                    ][nibble],
+                );
+            }
+        }
+    } else if let Some(inner_val) = arg.into_hexuint() {
+        for i in (0..7).rev() {
             let nibble: usize = ((inner_val >> (i * 4)) & 0xf) as usize;
             unsafe {
                 putchar(
@@ -196,11 +221,11 @@ pub fn align_up<T>(value: usize, align: usize) -> usize {
     }
 }
 
-fn is_aligned(value: usize, align: usize) -> bool {
+pub fn is_aligned(value: usize, align: usize) -> bool {
     value % align == 0
 }
 
-fn strcmp(s1: &str, s2: &str) -> i32 {
+pub fn strcmp(s1: &str, s2: &str) -> i32 {
     for (c1, c2) in s1.chars().zip(s2.chars()) {
         if c1 != c2 {
             return if c1 > c2 { 1 } else { -1 };

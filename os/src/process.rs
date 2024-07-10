@@ -12,6 +12,7 @@ pub struct Process {
     pub pid: i32,
     pub state: u32,
     pub sp: VAddr,
+    pub page_table: u32,
     pub stack: [u8; 8192],
 }
 
@@ -21,6 +22,7 @@ impl Process {
             pid: 0,
             state: PROC_UNUSED,
             sp: 0,
+            page_table: 0,
             stack: [0; 8192],
         }
     }
@@ -35,6 +37,10 @@ impl Process {
 
     pub fn set_sp(&mut self, sp: VAddr) {
         self.sp = sp;
+    }
+
+    pub fn set_page_table(&mut self, page_table: u32) {
+        self.page_table = page_table;
     }
 }
 
