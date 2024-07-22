@@ -15,7 +15,7 @@ impl SbiRet {
         arg5: i32,
         fid: i32,
         eid: i32,
-    ) -> SbiRet {
+    ) -> Self {
         let mut error;
         let mut value;
         asm!(
@@ -24,7 +24,7 @@ impl SbiRet {
             in("a2") arg2, in("a3") arg3, in("a4") arg4, in("a5") arg5,
             in("a6") fid, in("a7") eid
         );
-        SbiRet {
+        Self {
             _error: error,
             _value: value,
         }
